@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Riya's 7-Day Checklist</title>
+<link rel="manifest" href="manifest.json">
+<script>
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('service-worker.js').then(() => {
+    console.log("Service Worker Registered");
+  });
+}
+</script>
+<style>
+body { font-family: Arial,sans-serif; padding: 20px; background: #fefefe; }
+h1 { text-align: center; color: #2a9d8f; }
+h2 { color: #264653; margin-top: 30px; }
+ul { list-style: none; padding-left: 0; }
+li { margin: 10px 0; display: flex; align-items: center; padding: 5px; border-radius: 5px; }
+input[type="checkbox"] { transform: scale(1.3); margin-right: 10px; }
+input[type="text"] { flex: 1; padding: 5px; font-size: 16px; }
+button { margin-left: 5px; padding: 5px 8px; background: #e76f51; color: white; border: none; border-radius: 5px; cursor: pointer; }
+button:hover { background: #f4a261; }
+.done { background-color: #d4edda; } 
+.not-done { background-color: #f8d7da; } 
+#resetBtn { background: #2a9d8f; margin-bottom: 20px; padding: 10px 20px; font-size: 16px; }
+#resetBtn:hover { background: #264653; }
+.progress-container { margin: 10px 0; background: #ddd; border-radius: 10px; overflow: hidden; height: 20px; }
+.progress-bar { height: 100%; background: #2a9d8f; width: 0%; text-align: center; color: white; font-weight: bold; }
+#summary { margin-top: 20px; font-size: 16px; font-weight: bold; text-align: center; }
+</style>
+</head>
+<body>
+
+<h1>Riya's 7-Day Checklist</h1>
+<button id="resetBtn">Reset Week</button>
+<div id="week"></div>
+<div id="summary"></div>
+
+<script>
+const days = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
+const defaultTasks = [
+"Wake up at 6:30 AM","Exercise / workout","Shower & breakfast","Java practice","DevOps study",
+"HTML / Web practice","Other subject revision","College / Internship tasks","Lunch & water intake",
+"Evening walk / optional workout","Dinner & rest","Journaling / self-reflection",
+"Reading / skill learning","GitHub / portfolio / resume","Hobbies / family time"
+];
+
+function createChecklist() {
+    const container = document.getElementById("week");
+    container.innerHTML = "";
+
+    days.forEach(day => {
+        // Load saved tasks or use defaults
+        let tasks = JSON.parse(localStorage.getItem(day+"_tasks")) || [...defaultTasks];
+
+        const dayDiv = document.createElement("div");
+        dayDiv.id = day;
+
+        const dayTitle = document.createElement("h2");
+        dayTitle.textContent = day;
+        dayDiv.appendChild(dayTitle);
+
+        // Progress bar
+        const progressContainer = document.createElement("div");
+        progressContainer.className = "progress-container";
+        const progressBar = document.createElement("div");
+        progressBar.className = "progress-bar";
+        progressBar.id = day+"_progress";
+        progressContainer.appendChild(progressBar);
+        dayDiv.appendChild(progressContainer);
+
+        const ul = document.createElement("ul");
+        ul.id = day+"_ul";
+
+        tasks.forEach((task, idx) => {
+            const li = document.createElement("li");
+
+            const checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.id = day+"_task_"+idx;
+            checkbox.checked = JSON.parse(localStorage.getItem(checkbox.id+"_checked")) || false;
+
+            const taskInput = document.createElement("input");
+            taskInput.type = "text";
+            taskInput.value = task;
+
+            // Update color function
+            function updateColor() {
+                li.classList.remove("done","not-done");
+                li.classList.add(checkbox.checked ? "done":"not-done");
+                updateProgress(day);
+            }
+            updateColor();
+
+            checkbox.addEventListener("change",()=>{
+                localStorage.setItem(checkbox.id+"_checked", checkbox.checked);
+                updateColor();
+            });
+
+            taskInput.addEventListener("input", ()=>{
+                let allTasks = JSON.parse(localStorage.getItem(day+"_tasks")) || [...defaultTasks];
+                allTasks[idx] = taskInput.value;
+                localStorage.setItem(day+"_tasks", JSON.stringify(allTasks));
+            });
+
+            const addBtn = document.createElement("button");
+            addBtn.textContent = "+";
+            addBtn.addEventListener("click", ()=>{
+                let allTasks = JSON.parse(localStorage.getItem(day+"_tasks")) || [...defaultTasks];
+                allTasks.push("New Task");
+                localStorage.setItem(day+"_tasks", JSON.stringify(allTasks));
+                createChecklist();
+            });
+
+            const deleteBtn = document.createElement("button");
+            deleteBtn.textContent = "🗑";
+            deleteBtn.addEventListener("click", ()=>{
+                let allTasks = JSON.parse(localStorage.getItem(day+"_tasks")) || [...defaultTasks];
+                allTasks.splice(idx,1);
+                localStorage.setItem(day+"_tasks", JSON.stringify(allTasks));
+                localStorage.removeItem(checkbox.id+"_checked");
+                createChecklist();
+            });
+
+            li.appendChild(checkbox);
+            li.appendChild(taskInput);
+            li.appendChild(addBtn);
+            li.appendChild(deleteBtn);
+            ul.appendChild(li);
+        });
+
+        dayDiv.appendChild(ul);
+        container.appendChild(dayDiv);
+        updateProgress(day);
+    });
+
+    updateSummary();
+}
+
+function updateProgress(day){
+    const ul = document.getElementById(day+"_ul");
+    const progressBar = document.getElementById(day+"_progress");
+    if(!ul) return;
+
+    const checkboxes = ul.querySelectorAll("input[type='checkbox']");
+    let done = 0;
+    checkboxes.forEach(cb => { if(cb.checked) done++; });
+
+    const percent = checkboxes.length ? Math.round((done/checkboxes.length)*100) : 0;
+    progressBar.style.width = percent+"%";
+    progressBar.textContent = percent+"%";
+
+    updateSummary();
+}
+
+function updateSummary(){
+    let done=0, total=0;
+    days.forEach(day=>{
+        const ul = document.getElementById(day+"_ul");
+        if(!ul) return;
+        ul.querySelectorAll("input[type='checkbox']").forEach(cb=>{
+            total++; if(cb.checked) done++;
+        });
+    });
+    document.getElementById("summary").textContent = `Weekly Summary: ${done} / ${total} tasks done`;
+}
+
+// Reset week
+document.getElementById("resetBtn").addEventListener("click", ()=>{
+    if(confirm("Are you sure you want to reset the week? All checkmarks will be cleared!")){
+        localStorage.clear();
+        createChecklist();
+    }
+});
+
+createChecklist();
+</script>
+</body>
+</html>
